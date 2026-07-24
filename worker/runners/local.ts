@@ -12,7 +12,11 @@ import { join, resolve } from 'node:path';
 
 import type { RunnerContext, RunOutcome } from '../job';
 
-const REPO_ROOT = resolve(import.meta.dir, '../..');
+// cwd, not import.meta: this module is imported by job.ts, which Next.js bundles
+// through webpack, where `import.meta.dir` is undefined and `import.meta.url`
+// points into .next/. Both entry points -- the npm scripts and the dev server --
+// run from the package root, so cwd is the repo root in each.
+const REPO_ROOT = resolve(process.cwd());
 const SEED_APP_PORT = Number(process.env.SEED_APP_PORT ?? 3100);
 const HEALTH_TIMEOUT_MS = 60_000;
 const RUN_TIMEOUT_MS = Number(process.env.REPRO_TIMEOUT_MS ?? 300_000);
