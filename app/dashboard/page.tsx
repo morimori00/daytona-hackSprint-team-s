@@ -9,6 +9,7 @@
 import { withAuth } from '@workos-inc/authkit-nextjs';
 import Link from 'next/link';
 
+import { DashboardAssistant } from '@/components/DashboardAssistant';
 import { isWorkOSConfigured } from '@/lib/auth';
 import { listRuns, summarise, type RunRecord, type RunVerdict } from '@/worker/runs';
 
@@ -172,6 +173,8 @@ export default async function DashboardPage() {
           </div>
         )}
       </section>
+
+      <DashboardAssistant runs={runs} stats={stats} />
     </main>
   );
 }

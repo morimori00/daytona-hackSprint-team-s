@@ -26,5 +26,8 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
 }
 
 export const config = {
-  matcher: ['/((?!api/webhook|_next/static|_next/image|favicon.ico).*)'],
+  // The trailing alternative excludes anything with a file extension. Without
+  // it the landing page's own hero video redirects to a login, because /public
+  // assets are requests like any other as far as the matcher is concerned.
+  matcher: ['/((?!api/webhook|_next/static|_next/image|favicon.ico|.*\\.[a-zA-Z0-9]+$).*)'],
 };
