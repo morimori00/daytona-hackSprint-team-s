@@ -9,7 +9,18 @@
  * All copy is English on purpose -- global audience.
  */
 
-export type RunState = 'running' | 'reproduced' | 'not_reproduced' | 'failed';
+/**
+ * `preview` is deliberately not a verdict. A pull request walkthrough shows what
+ * the change does; there is nothing to be right or wrong about, so it gets no
+ * ✅/❌ and never claims something was proven.
+ */
+export type RunState =
+  | 'running'
+  | 'previewing'
+  | 'reproduced'
+  | 'not_reproduced'
+  | 'preview'
+  | 'failed';
 
 export interface CommentInput {
   state: RunState;
@@ -29,9 +40,17 @@ export interface CommentInput {
 
 const HEADLINES: Record<RunState, string> = {
   running: '## 🔄 Reproducing…',
+  previewing: '## 🔄 Recording a preview…',
   reproduced: '## ✅ Reproduced',
   not_reproduced: '## ❌ Not reproduced',
+  preview: '## 🎬 Preview',
   failed: "## ⚠️ Couldn't run the reproduction",
+};
+
+const PENDING: Partial<Record<RunState, string>> = {
+  running: 'Spinning up a sandbox and replaying the steps from this issue. This usually takes 1–3 minutes.',
+  previewing:
+    'Spinning up a sandbox on this branch and walking through what the pull request adds. This usually takes 1–3 minutes.',
 };
 
 /** Keep the LLM (and ourselves) to one sentence. */
@@ -52,7 +71,12 @@ function footer(input: CommentInput): string {
 
 function stepLog(steps: string[] | undefined, state: RunState): string {
   if (!steps?.length) return '';
-  const label = state === 'failed' ? 'Log' : `Steps replayed (${steps.length})`;
+  const label =
+    state === 'failed'
+      ? 'Log'
+      : state === 'preview'
+        ? `Steps demonstrated (${steps.length})`
+        : `Steps replayed (${steps.length})`;
   const body = steps.map((s) => `- ${s}`).join('\n');
   return `\n\n<details>\n<summary>${label}</summary>\n\n${body}\n\n</details>`;
 }
@@ -62,22 +86,20 @@ function evidence(input: CommentInput): string {
   // Alt text matters: screen readers, and GitHub's email digests where the
   // image may not render at all.
   const alt =
-    input.state === 'reproduced'
-      ? 'Recording of the reproduced bug'
-      : 'Recording of the reproduction attempt';
+    input.state === 'preview'
+      ? 'Recording of the walkthrough of this pull request'
+      : input.state === 'reproduced'
+        ? 'Recording of the reproduced bug'
+        : 'Recording of the reproduction attempt';
   return `\n\n![${alt}](${input.gifUrl})`;
 }
 
 export function renderComment(input: CommentInput): string {
   const headline = HEADLINES[input.state];
 
-  if (input.state === 'running') {
-    return [
-      headline,
-      '',
-      'Spinning up a sandbox and replaying the steps from this issue. This usually takes 1–3 minutes.',
-      footer(input).trim() ? footer(input).trimStart() : '',
-    ]
+  const pending = PENDING[input.state];
+  if (pending) {
+    return [headline, '', pending, footer(input).trim() ? footer(input).trimStart() : '']
       .filter(Boolean)
       .join('\n');
   }

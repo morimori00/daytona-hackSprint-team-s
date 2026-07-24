@@ -36,10 +36,10 @@ const APP_SESSION = 'target-app';
 const SHA = /^[0-9a-f]{7,40}$/;
 const REPO_PART = /^[A-Za-z0-9._-]+$/;
 
-function assertShellSafe(job: RunnerContext['job'], sha: string): void {
+function assertShellSafe(source: RunnerContext['source'], sha: string): void {
   if (!SHA.test(sha)) throw new Error(`refusing to check out a suspicious sha: ${sha}`);
-  if (!REPO_PART.test(job.owner) || !REPO_PART.test(job.repo)) {
-    throw new Error(`refusing to clone a suspicious repo: ${job.owner}/${job.repo}`);
+  if (!REPO_PART.test(source.owner) || !REPO_PART.test(source.repo)) {
+    throw new Error(`refusing to clone a suspicious repo: ${source.owner}/${source.repo}`);
   }
 }
 
@@ -47,10 +47,10 @@ export async function runInDaytona(ctx: RunnerContext): Promise<RunOutcome> {
   if (!process.env.DAYTONA_API_KEY) {
     throw new Error('DAYTONA_API_KEY is not set (use RUNNER=local to run without a sandbox)');
   }
-  assertShellSafe(ctx.job, ctx.sha);
+  assertShellSafe(ctx.source, ctx.sha);
 
   const cloneUrl =
-    process.env.REPRO_REPO_URL ?? `https://github.com/${ctx.job.owner}/${ctx.job.repo}.git`;
+    process.env.REPRO_REPO_URL ?? `https://github.com/${ctx.source.owner}/${ctx.source.repo}.git`;
   const baseUrl = `http://127.0.0.1:${SEED_APP_PORT}`;
 
   const daytona = new Daytona();
@@ -122,6 +122,7 @@ export async function runInDaytona(ctx: RunnerContext): Promise<RunOutcome> {
     await sandbox.fs.uploadFile(
       Buffer.from(
         JSON.stringify({
+          mode: ctx.job.kind,
           issue_title: ctx.job.issueTitle,
           issue_body: ctx.job.issueBody,
           base_url: baseUrl,

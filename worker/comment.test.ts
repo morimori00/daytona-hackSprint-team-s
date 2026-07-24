@@ -58,6 +58,33 @@ describe('renderComment', () => {
     expect(out).toContain('<summary>Log</summary>');
   });
 
+  test('preview shows the walkthrough without claiming a verdict', () => {
+    const out = renderComment({
+      state: 'preview',
+      summary: 'Typing in the filter box narrows the task list as you type',
+      gifUrl: 'https://raw.example/run.gif',
+      steps: ['OK: Opened the app', 'OK: Typed "milk" into the filter'],
+      commit: '764c2a6',
+      target: 'seed-app@feat/filter',
+    });
+    expect(out.startsWith('## 🎬 Preview')).toBe(true);
+    // A preview is a demonstration, not a judgement -- no verdict vocabulary.
+    expect(out).not.toContain('Reproduced');
+    expect(out).not.toContain('✅');
+    expect(out).not.toContain('❌');
+    expect(out).toContain('Steps demonstrated (2)');
+    expect(out).toContain('Recording of the walkthrough of this pull request');
+    expect(out).toContain('seed-app@feat/filter');
+  });
+
+  test('previewing says it is walking the PR, not replaying an issue', () => {
+    const out = renderComment({ state: 'previewing', commit: '764c2a6' });
+    expect(out.startsWith('## 🔄 Recording a preview…')).toBe(true);
+    expect(out).toContain('pull request');
+    expect(out).not.toContain('this issue');
+    expect(out).toContain('commit 764c2a6');
+  });
+
   test('no gif means no broken image', () => {
     const out = renderComment({ state: 'reproduced', summary: 'It broke' });
     expect(out).not.toContain('![');

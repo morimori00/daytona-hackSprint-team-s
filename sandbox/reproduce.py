@@ -10,11 +10,16 @@ audience.
 
 `job.json`:
     {
+      "mode":        "bug",          // or "preview" for a pull request
       "issue_title": "Deleting a task removes the wrong one",
       "issue_body":  "1. Open the app\n2. Click Delete on 'Walk the dog'\n...",
       "base_url":    "http://127.0.0.1:3100",
       "output_dir":  "/tmp/run-123"
     }
+
+In `preview` mode the body is a pull request description and there is no verdict
+to reach: the agent demonstrates what the change does and the recording is the
+deliverable.
 
 Writes `<output_dir>/result.json` and the recording alongside it.
 """
@@ -63,6 +68,24 @@ class Verdict(BaseModel):
     steps: list[str] = Field(
         default_factory=list,
         description="Each step attempted, prefixed with 'OK: ' or 'FAILED: '.",
+    )
+
+
+class Walkthrough(BaseModel):
+    """A preview has no verdict. Deliberately no `reproduced` field: nothing here
+    is a claim that can be right or wrong, and offering the agent one would
+    invite it to grade a change it was only asked to show."""
+
+    summary: str = Field(
+        description=(
+            "ONE plain-English sentence describing what the change does, written "
+            "from what you actually saw in the browser. No preamble, no praise, "
+            "no restating the pull request title."
+        )
+    )
+    steps: list[str] = Field(
+        default_factory=list,
+        description="Each step you demonstrated, prefixed with 'OK: ' or 'FAILED: '.",
     )
 
 
@@ -157,13 +180,47 @@ When you are finished, report:
 Write in English."""
 
 
+def build_preview_task(pr_title: str, pr_body: str, base_url: str) -> str:
+    return f"""You are recording a short walkthrough of a pull request, on the web app already running at {base_url}.
+
+Work out from the description below what this change adds or alters, then show
+it working in the browser the way the author would demo it to a reviewer. Go
+through it at a steady, deliberate pace -- the recording is the deliverable, so
+an action nobody can follow is worse than one fewer action.
+
+CRITICAL -- show, never assert:
+Only describe what you actually saw on the page. If the description mentions
+something you cannot find in the UI, say so plainly in the steps and move on.
+Do not fill the gap from the description, and do not judge whether the change is
+good, correct or complete -- that is the reviewer's job, not yours. You are
+not testing anything.
+
+If the change is not visible in the browser at all (docs, CI, refactor), do the
+closest honest thing: show the part of the app it touches still working, and say
+in the summary that the change itself is not visible in the UI.
+
+PULL REQUEST
+Title: {pr_title}
+
+{pr_body}
+
+When you are finished, report:
+- summary: ONE sentence, plain English, saying what the change does as you saw it
+- steps: what you demonstrated, each prefixed with "OK: " or "FAILED: "
+
+Write in English."""
+
+
 async def run(config: dict) -> dict:
     output_dir = Path(config["output_dir"])
     output_dir.mkdir(parents=True, exist_ok=True)
     video_dir = output_dir / "video"
     video_dir.mkdir(exist_ok=True)
 
+    preview = config.get("mode") == "preview"
+
     browser_path = find_browser()
+    print(f"[reproduce] mode:    {'preview' if preview else 'bug'}", flush=True)
     print(f"[reproduce] browser: {browser_path or '(default)'}", flush=True)
     print(f"[reproduce] target:  {config['base_url']}", flush=True)
 
@@ -175,7 +232,8 @@ async def run(config: dict) -> dict:
     )
     session = BrowserSession(browser_profile=profile)
 
-    verdict: Verdict | None = None
+    output_model: type[BaseModel] = Walkthrough if preview else Verdict
+    verdict: BaseModel | None = None
     error: str | None = None
 
     try:
@@ -188,22 +246,23 @@ async def run(config: dict) -> dict:
         # rather than signal. Opt in with REPRO_USE_JUDGE=1 when debugging.
         use_judge = _env_flag("REPRO_USE_JUDGE", default=False)
 
+        build = build_preview_task if preview else build_task
         agent = Agent(
-            task=build_task(config["issue_title"], config["issue_body"], config["base_url"]),
+            task=build(config["issue_title"], config["issue_body"], config["base_url"]),
             llm=llm,
             browser_session=session,
-            output_model_schema=Verdict,
+            output_model_schema=output_model,
             use_vision=use_vision,
             use_judge=use_judge,
         )
         history = await agent.run(max_steps=MAX_STEPS)
         raw = history.structured_output
-        if isinstance(raw, Verdict):
+        if isinstance(raw, output_model):
             verdict = raw
         elif raw is not None:
-            verdict = Verdict.model_validate(raw)
+            verdict = output_model.model_validate(raw)
         else:
-            error = "Agent finished without returning a verdict."
+            error = "Agent finished without returning a result."
     except Exception as exc:  # noqa: BLE001 -- any failure still needs a comment
         error = f"{type(exc).__name__}: {exc}"
         print(f"[reproduce] ERROR {error}", flush=True)
@@ -221,7 +280,9 @@ async def run(config: dict) -> dict:
     videos = sorted(video_dir.glob("*.mp4"))
     result = {
         "state": "completed" if verdict else "error",
-        "reproduced": verdict.reproduced if verdict else None,
+        # A Walkthrough has no `reproduced` field, and must never grow one by
+        # accident: null is what tells the comment to render a Preview.
+        "reproduced": getattr(verdict, "reproduced", None),
         "summary": verdict.summary if verdict else (error or "The reproduction run failed."),
         "steps": verdict.steps if verdict else [],
         "video": str(videos[0]) if videos else None,

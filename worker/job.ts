@@ -24,9 +24,22 @@ import { runInDaytona } from './runners/daytona';
 export interface Job {
   owner: string;
   repo: string;
+  /** PR numbers and issue numbers share one sequence, so this works for both. */
   issueNumber: number;
   issueTitle: string;
   issueBody: string;
+  /**
+   * `bug` replays an issue's steps and reaches a verdict. `preview` walks
+   * through what a pull request adds and only shows it -- there is no claim to
+   * be right or wrong about.
+   */
+  kind: 'bug' | 'preview';
+  /**
+   * Where the code under test lives. Present for pull requests, whose head may
+   * be a fork -- the base repo doesn't contain that commit, so cloning it would
+   * fail at checkout.
+   */
+  head?: { owner: string; repo: string; sha: string; ref: string };
 }
 
 /** What every runner must return, however it executed. */
@@ -44,6 +57,8 @@ export interface RunnerContext {
   workDir: string;
   /** Commit actually under test. */
   sha: string;
+  /** Repo to clone. Differs from the job's repo when a PR comes from a fork. */
+  source: { owner: string; repo: string };
 }
 
 function formatDuration(ms: number): string {
@@ -60,19 +75,22 @@ export async function startJob(job: Job): Promise<void> {
   let commentId: number | undefined;
 
   try {
-    const sha = await headSha(ref);
+    // A pull request pins its own commit; an issue doesn't, so it gets whatever
+    // the default branch is right now.
+    const sha = job.head?.sha ?? (await headSha(ref));
     const short = sha.slice(0, 7);
+    const source = job.head ? { owner: job.head.owner, repo: job.head.repo } : ref;
 
     // Land a comment immediately so nobody stares at silence, then edit this
     // same one -- one comment id per run means no notification spam.
     commentId = await createComment(
       ref,
       job.issueNumber,
-      renderComment({ state: 'running', commit: short }),
+      renderComment({ state: job.kind === 'preview' ? 'previewing' : 'running', commit: short }),
     );
 
     const runner = process.env.RUNNER === 'daytona' ? runInDaytona : runLocal;
-    const outcome = await runner({ job, workDir, sha });
+    const outcome = await runner({ job, workDir, sha, source });
 
     let gifUrl: string | undefined;
     if (outcome.video) {
@@ -95,9 +113,11 @@ export async function startJob(job: Job): Promise<void> {
     const state =
       outcome.state === 'error'
         ? 'failed'
-        : outcome.reproduced
-          ? 'reproduced'
-          : 'not_reproduced';
+        : job.kind === 'preview'
+          ? 'preview'
+          : outcome.reproduced
+            ? 'reproduced'
+            : 'not_reproduced';
 
     await updateComment(
       ref,
@@ -109,7 +129,9 @@ export async function startJob(job: Job): Promise<void> {
         gifUrl,
         commit: short,
         duration: formatDuration(Date.now() - started),
-        target: `${job.repo}@${sha.slice(0, 7)}`,
+        // The branch is what a reviewer recognises on a PR; the commit is
+        // already in the footer next to it.
+        target: `${job.repo}@${job.head?.ref ?? sha.slice(0, 7)}`,
       }),
     );
   } catch (err) {

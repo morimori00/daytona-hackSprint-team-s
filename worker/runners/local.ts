@@ -58,6 +58,7 @@ export async function runLocal(ctx: RunnerContext): Promise<RunOutcome> {
     await writeFile(
       configPath,
       JSON.stringify({
+        mode: ctx.job.kind,
         issue_title: ctx.job.issueTitle,
         issue_body: ctx.job.issueBody,
         base_url: baseUrl,

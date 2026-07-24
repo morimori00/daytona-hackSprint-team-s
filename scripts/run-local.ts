@@ -47,6 +47,10 @@ const runnerName = arg('runner', 'local');
 if (runnerName !== 'local' && runnerName !== 'daytona') {
   throw new Error(`--runner must be "local" or "daytona", got "${runnerName}"`);
 }
+const kind = arg('mode', 'bug');
+if (kind !== 'bug' && kind !== 'preview') {
+  throw new Error(`--mode must be "bug" or "preview", got "${kind}"`);
+}
 const raw = await readFile(issuePath, 'utf8');
 
 // First markdown heading is the title, the rest is the body.
@@ -72,9 +76,10 @@ console.log(`▸ work:   ${workDir}\n`);
 try {
   const runner = runnerName === 'daytona' ? runInDaytona : runLocal;
   const outcome = await runner({
-    job: { owner, repo, issueNumber: 0, issueTitle, issueBody },
+    job: { owner, repo, issueNumber: 0, issueTitle, issueBody, kind },
     workDir,
     sha,
+    source: { owner, repo },
   });
 
   let gifNote = '(no recording)';
@@ -85,7 +90,13 @@ try {
   }
 
   const state =
-    outcome.state === 'error' ? 'failed' : outcome.reproduced ? 'reproduced' : 'not_reproduced';
+    outcome.state === 'error'
+      ? 'failed'
+      : kind === 'preview'
+        ? 'preview'
+        : outcome.reproduced
+          ? 'reproduced'
+          : 'not_reproduced';
 
   const seconds = Math.round((Date.now() - started) / 1000);
   console.log('\n' + '─'.repeat(64));
