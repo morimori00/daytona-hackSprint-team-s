@@ -39,11 +39,21 @@
   }
   .add-row button { background: #0f172a; color: #fff; border-color: #0f172a; font-weight: 500; }
   .empty { padding: 40px 24px; text-align: center; color: #94a3b8; font-size: 20px; }
+  .filter-row { max-width: 720px; margin: 0 0 16px; }
+  .filter-row input {
+    width: 100%; font: inherit; font-size: 20px; padding: 14px 18px;
+    border: 1px solid #cbd5e1; border-radius: 8px; background: #fff;
+  }
+  .filter-row input:focus { outline: 2px solid #0f172a; outline-offset: 1px; }
 </style>
 </head>
 <body>
   <h1>Taskly</h1>
   <p class="sub">A very small task list. Something here is broken.</p>
+
+  <div class="filter-row">
+    <input id="filter" placeholder="Filter tasks…" aria-label="Filter tasks">
+  </div>
 
   <div class="panel">
     <ul id="list"></ul>
@@ -56,15 +66,27 @@
 
 <script>
   let tasks = ['Buy milk', 'Walk the dog', 'Write the report'];
+  let filter = '';
+
+  // Keeps each task's position in `tasks`, so Delete still acts on the real row
+  // and not on wherever it happens to sit in the filtered view.
+  function visibleTasks() {
+    const query = filter.trim().toLowerCase();
+    const withIndex = tasks.map((task, index) => ({ task, index }));
+    if (!query) return withIndex;
+    return withIndex.filter(({ task }) => task.toLowerCase().includes(query));
+  }
 
   function render() {
     const list = document.getElementById('list');
-    if (tasks.length === 0) {
-      list.innerHTML = '<li class="empty">Nothing left to do.</li>';
+    const visible = visibleTasks();
+    if (visible.length === 0) {
+      const message = tasks.length === 0 ? 'Nothing left to do.' : 'No tasks match that filter.';
+      list.innerHTML = '<li class="empty">' + message + '</li>';
       return;
     }
     list.innerHTML = '';
-    tasks.forEach((task, index) => {
+    visible.forEach(({ task, index }) => {
       const li = document.createElement('li');
 
       const name = document.createElement('span');
@@ -90,6 +112,11 @@
     tasks.splice(index - 1, 1);
     render();
   }
+
+  document.getElementById('filter').addEventListener('input', (event) => {
+    filter = event.target.value;
+    render();
+  });
 
   document.getElementById('add').addEventListener('click', () => {
     const input = document.getElementById('new-task');
