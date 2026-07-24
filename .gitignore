@@ -1,0 +1,14 @@
+node_modules/
+.next/
+.env
+.env.local
+.venv/
+__pycache__/
+*.pyc
+
+# Spike + run output
+spikes/**/recordings/
+spikes/**/_page/
+/tmp-runs/
+*.mp4
+*.gif

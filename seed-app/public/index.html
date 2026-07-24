@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taskly — demo</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 56px 48px;
+    font: 400 20px/1.5 ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+    background: #f8fafc;
+    color: #0f172a;
+  }
+  h1 { font-size: 40px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .sub { color: #64748b; margin: 0 0 32px; font-size: 18px; }
+  .panel {
+    max-width: 720px; background: #fff; border: 1px solid #e2e8f0;
+    border-radius: 12px; padding: 8px;
+  }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li {
+    display: flex; align-items: center; gap: 16px;
+    padding: 20px 24px; border-bottom: 1px solid #f1f5f9;
+  }
+  li:last-child { border-bottom: 0; }
+  .name { flex: 1; font-size: 24px; font-weight: 500; }
+  button {
+    font: inherit; font-size: 18px; padding: 10px 22px; cursor: pointer;
+    border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #334155;
+  }
+  button:hover { background: #f1f5f9; }
+  .add-row { display: flex; gap: 12px; margin-top: 24px; max-width: 720px; }
+  .add-row input {
+    flex: 1; font: inherit; font-size: 20px; padding: 14px 18px;
+    border: 1px solid #cbd5e1; border-radius: 8px;
+  }
+  .add-row button { background: #0f172a; color: #fff; border-color: #0f172a; font-weight: 500; }
+  .empty { padding: 40px 24px; text-align: center; color: #94a3b8; font-size: 20px; }
+</style>
+</head>
+<body>
+  <h1>Taskly</h1>
+  <p class="sub">A very small task list. Something here is broken.</p>
+
+  <div class="panel">
+    <ul id="list"></ul>
+  </div>
+
+  <div class="add-row">
+    <input id="new-task" placeholder="Add a task…" aria-label="New task">
+    <button id="add">Add</button>
+  </div>
+
+<script>
+  let tasks = ['Buy milk', 'Walk the dog', 'Write the report'];
+
+  function render() {
+    const list = document.getElementById('list');
+    if (tasks.length === 0) {
+      list.innerHTML = '<li class="empty">Nothing left to do.</li>';
+      return;
+    }
+    list.innerHTML = '';
+    tasks.forEach((task, index) => {
+      const li = document.createElement('li');
+
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = task;
+
+      const del = document.createElement('button');
+      del.textContent = 'Delete';
+      del.setAttribute('data-testid', 'delete-' + index);
+      del.setAttribute('aria-label', 'Delete ' + task);
+      del.addEventListener('click', () => deleteTask(index));
+
+      li.appendChild(name);
+      li.appendChild(del);
+      list.appendChild(li);
+    });
+  }
+
+  // BUG (intentional, this is the whole point of the demo):
+  // off-by-one — deleting row N removes the row above it instead.
+  // Click "Delete" on "Walk the dog" and "Buy milk" vanishes.
+  function deleteTask(index) {
+    tasks.splice(index - 1, 1);
+    render();
+  }
+
+  document.getElementById('add').addEventListener('click', () => {
+    const input = document.getElementById('new-task');
+    const value = input.value.trim();
+    if (!value) return;
+    tasks.push(value);
+    input.value = '';
+    render();
+  });
+
+  render();
+</script>
+</body>
+</html>

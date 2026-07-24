@@ -1,0 +1,8 @@
+# Pinned on purpose. browser-use moves fast and its recording implementation
+# has already changed once (it is CDP screencast + imageio-ffmpeg now, not
+# Playwright). An unpinned upgrade can silently break the recording, which is
+# the one artifact this whole project exists to produce.
+#
+# The [video] extra is NOT optional: without imageio/imageio-ffmpeg the
+# recording watchdog logs a warning and produces no file at all.
+browser-use[video]==0.13.6

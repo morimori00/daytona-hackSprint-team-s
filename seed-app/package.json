@@ -1,0 +1,9 @@
+{
+  "name": "seed-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deliberately buggy demo app used as the reproduction target.",
+  "scripts": {
+    "dev": "node server.js"
+  }
+}

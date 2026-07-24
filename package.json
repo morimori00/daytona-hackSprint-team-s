@@ -1,0 +1,24 @@
+{
+  "name": "reproducibility",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Label an issue, get a video proving whether the bug reproduces.",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "test": "bun test worker/",
+    "seed-app": "node seed-app/server.js",
+    "repro:local": "bun run scripts/run-local.ts"
+  },
+  "dependencies": {
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}
