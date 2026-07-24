@@ -9,9 +9,12 @@
     "start": "next start -p 3000",
     "test": "bun test worker/",
     "seed-app": "node seed-app/server.js",
-    "repro:local": "bun run scripts/run-local.ts"
+    "repro:local": "bun run scripts/run-local.ts",
+    "repro:daytona": "bun run scripts/run-local.ts --runner daytona",
+    "snapshot": "sandbox/.venv/bin/python sandbox/create_snapshot.py"
   },
   "dependencies": {
+    "@daytonaio/sdk": "^0.200.1",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

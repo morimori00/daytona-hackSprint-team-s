@@ -60,6 +60,17 @@ It must report **Not reproduced**. If it ever reports the opposite, the agent is
 echoing the issue text instead of reading the page, and no verdict can be
 trusted. Run both before demoing.
 
+To run it in a real sandbox instead, build the snapshot once, then point the
+same rehearsal at Daytona:
+
+```bash
+npm run snapshot                # bakes Chromium + browser-use[video], ~1.4GB
+npm run repro:daytona -- --issue-file examples/issue.md
+```
+
+The sandbox clones the repo, so it can only reproduce against a commit that is
+already pushed — it tests `HEAD` by default, `--sha` to pick another.
+
 To take webhooks:
 
 ```bash
@@ -76,6 +87,8 @@ ngrok http 3000                # point the repo webhook at /api/webhook
 | `worker/comment.ts` | Renders the comment (4 states) |
 | `worker/runners/` | `local` runs here, `daytona` runs in a sandbox |
 | `sandbox/reproduce.py` | Drives the browser and returns the verdict |
+| `sandbox/Dockerfile` | The snapshot image; everything slow is baked here |
+| `sandbox/create_snapshot.py` | Builds that snapshot on Daytona (no local Docker) |
 | `seed-app/` | The deliberately buggy demo target |
 | `spikes/01-recording/` | Proof the recording pipeline produces valid mp4 |
 
@@ -97,6 +110,18 @@ ngrok http 3000                # point the repo webhook at /api/webhook
   anonymously — on a private repo the image 404s for everyone.
 - **The token never enters the sandbox.** Repo code runs in there; artifacts are
   pulled out and published from the control plane.
+- **The snapshot is built server-side.** No local Docker daemon and no Daytona
+  CLI — `Image.from_dockerfile` walks the `COPY` directives and ships those
+  files as the build context. Add a `COPY` and it comes along; reference a file
+  another way and it won't.
+- **Start the app in a session, not a command.** `executeCommand` blocks until
+  the process exits, so a server started that way hangs the run until timeout.
+- **Poll health from inside the sandbox.** `127.0.0.1` there is not `127.0.0.1`
+  here, so the wait loop is a shell command in the box, not a fetch from the
+  control plane.
+- **Don't forward `BROWSER_PATH` into the sandbox.** The image already sets it
+  to `/usr/bin/chromium`; this machine's value points at a macOS binary that
+  isn't there.
 
 ## Status
 
@@ -109,4 +134,5 @@ ngrok http 3000                # point the repo webhook at /api/webhook
 | Local runner | done — full reproduction in ~27s |
 | Reproduction accuracy | real bug → reproduced; control bug → not reproduced |
 | GitHub publish + comment | verified live on issue #1 |
-| Daytona runner | not wired yet |
+| Sandbox snapshot | built and active — boots in under a second |
+| Daytona runner | done — full reproduction in a sandbox in ~27s, both cases |
