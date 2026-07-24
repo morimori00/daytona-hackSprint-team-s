@@ -12,3 +12,6 @@ spikes/**/_page/
 /tmp-runs/
 *.mp4
 *.gif
+
+# Run history written by the worker
+.runs/

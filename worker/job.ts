@@ -18,6 +18,7 @@ import { renderComment } from './comment';
 import { mp4ToGif } from './gif';
 import { createComment, updateComment, publishArtifact, headSha } from './github';
 import { release } from './dedup';
+import { recordRun } from './runs';
 import { runLocal } from './runners/local';
 import { runInDaytona } from './runners/daytona';
 
@@ -134,6 +135,24 @@ export async function startJob(job: Job): Promise<void> {
         target: `${job.repo}@${job.head?.ref ?? sha.slice(0, 7)}`,
       }),
     );
+
+    // History is a side effect of the run, never a precondition for it: a
+    // dashboard that can't be written must not cost anyone their result.
+    await recordRun({
+      at: new Date().toISOString(),
+      owner: job.owner,
+      repo: job.repo,
+      number: job.issueNumber,
+      title: job.issueTitle,
+      kind: job.kind,
+      verdict: state,
+      summary: outcome.summary,
+      commit: short,
+      seconds: Math.round((Date.now() - started) / 1000),
+      stepCount: outcome.steps.length,
+      gifUrl,
+      commentUrl: `https://github.com/${job.owner}/${job.repo}/issues/${job.issueNumber}#issuecomment-${commentId}`,
+    }).catch((err) => console.error('[job] could not record the run', err));
   } catch (err) {
     console.error('[job] failed', err);
     // A failure the user never sees is worse than the failure itself.

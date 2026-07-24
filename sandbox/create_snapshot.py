@@ -57,7 +57,7 @@ def main() -> int:
         name=args.name,
         image=image,
         # Matches the sizing the runner asks for when it creates a sandbox.
-        resources=Resources(cpu=2, memory=4, disk=5),
+        resources=Resources(cpu=4, memory=8, disk=10),
     )
 
     print(f"building snapshot {args.name!r} from {DOCKERFILE.relative_to(REPO_ROOT)}...")
